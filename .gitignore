@@ -1,0 +1,9 @@
+.env
+output/
+__pycache__/
+*.pyc
+tectonic.exe
+tectonic.zip
+.venv/
+data/
+output/
