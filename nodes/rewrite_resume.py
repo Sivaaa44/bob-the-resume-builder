@@ -30,7 +30,7 @@ STRICT GUARDRAILS:
 1. ONLY use skills and experience verified in Ground Truth: {json.dumps(ground_truth, indent=2)}
 2. Allowed skills to emphasize / reword: {matched} and partial skills: {partial}
 3. STRICTLY PROHIBITED: Do NOT invent or add any new tool, skill, or experience claim not explicitly in ground truth.
-4. Keep full valid LaTeX formatting intact. Return ONLY valid executable LaTeX code (no markdown backticks or extra text outside LaTeX code).
+4. Keep full valid LaTeX formatting intact. Return ONLY valid executable LaTeX code (from \\documentclass to \\end{{document}}). Do NOT include conversational preamble or markdown commentary.
 5. Allowed changes:
    - Reorder bullets and sections by relevance to JD
    - Reweight project billing
@@ -44,6 +44,8 @@ STRICT GUARDRAILS:
 
         res = llm.invoke(prompt)
         new_tex = res.content.strip()
+        
+        # Clean code block backticks
         if new_tex.startswith("```latex"):
             new_tex = new_tex[8:]
         if new_tex.startswith("```"):
@@ -51,6 +53,13 @@ STRICT GUARDRAILS:
         if new_tex.endswith("```"):
             new_tex = new_tex[:-3]
         new_tex = new_tex.strip()
+
+        # Strict extraction between \documentclass and \end{document}
+        if "\\documentclass" in new_tex and "\\end{document}" in new_tex:
+            start_idx = new_tex.find("\\documentclass")
+            end_idx = new_tex.rfind("\\end{document}") + len("\\end{document}")
+            new_tex = new_tex[start_idx:end_idx]
+
     else:
         # Heuristic deterministic tailoring if LLM key is absent
         new_tex = working_tex

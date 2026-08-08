@@ -7,3 +7,5 @@ tectonic.zip
 .venv/
 data/
 output/
+frontend/node_modules
+frontend/dist

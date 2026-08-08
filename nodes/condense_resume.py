@@ -23,10 +23,11 @@ Instructions to condense:
 Current LaTeX Resume:
 {tex_content}
 
-Return ONLY valid executable LaTeX code.
+Return ONLY valid executable LaTeX code (from \\documentclass to \\end{{document}}).
 """
         res = llm.invoke(prompt)
         new_tex = res.content.strip()
+
         if new_tex.startswith("```latex"):
             new_tex = new_tex[8:]
         if new_tex.startswith("```"):
@@ -34,6 +35,13 @@ Return ONLY valid executable LaTeX code.
         if new_tex.endswith("```"):
             new_tex = new_tex[:-3]
         new_tex = new_tex.strip()
+
+        # Strict extraction between \documentclass and \end{document}
+        if "\\documentclass" in new_tex and "\\end{document}" in new_tex:
+            start_idx = new_tex.find("\\documentclass")
+            end_idx = new_tex.rfind("\\end{document}") + len("\\end{document}")
+            new_tex = new_tex[start_idx:end_idx]
+
     else:
         # Deterministic space reduction fallback
         new_tex = tex_content

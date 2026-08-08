@@ -23,7 +23,7 @@ class TestResumeTailorAgent(unittest.TestCase):
         Nice to have: Pinecone, React.
         """
 
-    @patch("utils.llm.get_llm", return_value=None)
+    @patch("nodes.parse_jd.get_llm", return_value=None)
     def test_01_parse_jd(self, mock_llm):
         state: ResumeTailorState = {"jd_raw": self.sample_jd, "condense_attempts": 0, "status": "running"}
         res = parse_jd_node(state)
@@ -46,7 +46,7 @@ class TestResumeTailorAgent(unittest.TestCase):
         self.assertIn("Snowflake Cortex", match_res["matched"])
         self.assertIn("Kubernetes", match_res["missing"])
 
-    @patch("utils.llm.get_llm", return_value=None)
+    @patch("nodes.gap_report.get_llm", return_value=None)
     def test_03_generate_gap_report(self, mock_llm):
         match_result = {
             "matched": ["Python", "FastAPI"],
@@ -58,7 +58,7 @@ class TestResumeTailorAgent(unittest.TestCase):
         report = res["gap_report"]
         self.assertIn("Kubernetes", report)
 
-    @patch("utils.llm.get_llm", return_value=None)
+    @patch("nodes.rewrite_resume.get_llm", return_value=None)
     def test_04_rewrite_resume(self, mock_llm):
         match_result = {
             "matched": ["Python", "FastAPI", "SQLite", "MCP", "Snowflake Cortex"],
@@ -95,7 +95,7 @@ class TestResumeTailorAgent(unittest.TestCase):
         page_res = check_pages_node(state)
         self.assertGreater(page_res["page_count"], 0)
 
-    @patch("utils.llm.get_llm", return_value=None)
+    @patch("nodes.condense_resume.get_llm", return_value=None)
     def test_06_condense_resume_loop(self, mock_llm):
         base_tex_path = os.path.join(os.getcwd(), "data", "base_resume.tex")
         with open(base_tex_path, "r", encoding="utf-8") as f:
@@ -113,8 +113,11 @@ class TestResumeTailorAgent(unittest.TestCase):
         res = condense_resume_node(state)
         self.assertEqual(res["condense_attempts"], 1)
 
-    @patch("utils.llm.get_llm", return_value=None)
-    def test_07_end_to_end_graph(self, mock_llm):
+    @patch("nodes.parse_jd.get_llm", return_value=None)
+    @patch("nodes.gap_report.get_llm", return_value=None)
+    @patch("nodes.rewrite_resume.get_llm", return_value=None)
+    @patch("nodes.condense_resume.get_llm", return_value=None)
+    def test_07_end_to_end_graph(self, mock_llm1, mock_llm2, mock_llm3, mock_llm4):
         app = build_graph()
         config = {"configurable": {"thread_id": "test_thread_1"}}
         initial_state = {
