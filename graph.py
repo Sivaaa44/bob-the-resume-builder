@@ -9,8 +9,21 @@ from nodes.rewrite_resume import rewrite_resume_node
 from nodes.compile_tex_node import compile_tex_node
 from nodes.check_pages import check_pages_node
 from nodes.condense_resume import condense_resume_node
+from nodes.human_constraint import human_constraint_node
 from nodes.human_review import human_review_node
 from nodes.finalize import finalize_node
+
+def route_parse_jd(state: ResumeTailorState) -> str:
+    constraint_type = state.get("constraint_type")
+    if constraint_type == "Hard":
+        return "human_constraint"
+    return "match_skills"
+
+def route_human_constraint(state: ResumeTailorState) -> str:
+    status = state.get("status")
+    if status == "aborted":
+        return END
+    return "match_skills"
 
 def route_check_pages(state: ResumeTailorState) -> str:
     page_count = state.get("page_count", 0)
@@ -39,6 +52,7 @@ def build_graph():
 
     # Add Nodes
     builder.add_node("parse_jd", parse_jd_node)
+    builder.add_node("human_constraint", human_constraint_node)
     builder.add_node("match_skills", match_skills_node)
     builder.add_node("generate_gap_report", generate_gap_report_node)
     builder.add_node("rewrite_resume", rewrite_resume_node)
@@ -50,7 +64,27 @@ def build_graph():
 
     # Add Edges
     builder.add_edge(START, "parse_jd")
-    builder.add_edge("parse_jd", "match_skills")
+
+    # Conditional Routing from parse_jd (Hard Constraint Pause)
+    builder.add_conditional_edges(
+        "parse_jd",
+        route_parse_jd,
+        {
+            "human_constraint": "human_constraint",
+            "match_skills": "match_skills"
+        }
+    )
+
+    # Conditional Routing from human_constraint
+    builder.add_conditional_edges(
+        "human_constraint",
+        route_human_constraint,
+        {
+            "match_skills": "match_skills",
+            END: END
+        }
+    )
+
     builder.add_edge("match_skills", "generate_gap_report")
     builder.add_edge("generate_gap_report", "rewrite_resume")
     builder.add_edge("rewrite_resume", "compile_tex")
@@ -82,6 +116,7 @@ def build_graph():
     memory = MemorySaver()
     app = builder.compile(checkpointer=memory)
     return app
+
 
 if __name__ == "__main__":
     graph = build_graph()

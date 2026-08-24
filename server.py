@@ -37,9 +37,12 @@ def build_response_payload(thread_id: str, state_snapshot) -> dict:
     values = state_snapshot.values or {}
     pdf_path = values.get("pdf_path")
     status = values.get("status", "running")
-    
+    next_node = state_snapshot.next[0] if state_snapshot.next else ""
+
     # Determine UI status
-    if state_snapshot.next:
+    if "human_constraint" in next_node:
+        ui_status = "awaiting_constraint"
+    elif state_snapshot.next:
         ui_status = "awaiting_review"
     elif status == "approved":
         ui_status = "approved"
@@ -53,6 +56,9 @@ def build_response_payload(thread_id: str, state_snapshot) -> dict:
     return {
         "thread_id": thread_id,
         "status": ui_status,
+        "match_score": values.get("match_score", 0.8),
+        "constraint_type": values.get("constraint_type", "None"),
+        "constraint_reason": values.get("constraint_reason", ""),
         "match_result": values.get("match_result", {"matched": [], "partial": [], "missing": []}),
         "gap_report": values.get("gap_report", ""),
         "tex_diff": values.get("tex_diff", ""),
@@ -61,6 +67,7 @@ def build_response_payload(thread_id: str, state_snapshot) -> dict:
         "pdf_url": pdf_url,
         "error": None
     }
+
 
 @app.get("/api/health")
 def health_check():

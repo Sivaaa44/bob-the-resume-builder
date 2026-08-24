@@ -4,9 +4,19 @@ from utils.llm import get_llm
 def generate_gap_report_node(state: ResumeTailorState) -> dict:
     match_result = state.get("match_result", {"matched": [], "partial": [], "missing": []})
     missing = match_result.get("missing", [])
+    match_score = state.get("match_score", 0.8)
+    constraint_type = state.get("constraint_type", "None")
+    constraint_reason = state.get("constraint_reason", "")
+
+    header = f"### Overall Match & Gap Analysis Report\n"
+    header += f"- **Match Score**: `{int(match_score * 100)}% ({match_score:.2f})`\n"
+    header += f"- **Constraint Status**: `{constraint_type}`"
+    if constraint_reason:
+        header += f" ({constraint_reason})"
+    header += "\n\n"
 
     if not missing:
-        report = "### Gap Analysis Report\n\nNo skill gaps detected! All required skills matched candidate ground truth."
+        report = header + "No critical skill gaps detected! All required skills matched candidate ground truth."
         return {"gap_report": report}
 
     llm = get_llm()
@@ -25,10 +35,10 @@ For each missing item:
 Keep the report structured, clear, and action-oriented in markdown format.
 """
         res = llm.invoke(prompt)
-        report = res.content
+        report = header + res.content
     else:
         # Heuristic fallback if LLM key is absent
-        lines = ["### Gap Analysis Report\n"]
+        lines = [header + "#### Identified Gaps\n"]
         for skill in missing:
             lines.append(f"**Missing Skill**: `{skill}`")
             lines.append(f"- **Description**: The job description asks for {skill}, which is not present in your ground truth experience.")
@@ -36,3 +46,4 @@ Keep the report structured, clear, and action-oriented in markdown format.
         report = "\n".join(lines)
 
     return {"gap_report": report}
+

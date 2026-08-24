@@ -68,4 +68,21 @@ def match_skills_node(state: ResumeTailorState) -> dict:
         "missing": missing
     }
 
-    return {"match_result": match_result}
+    # Calculate numeric match score (0.0 to 1.0)
+    total_skills = len(jd_skills)
+    if total_skills > 0:
+        raw_score = (len(matched) * 1.0 + len(partial) * 0.5) / float(total_skills)
+        computed_match_score = round(min(1.0, max(0.0, raw_score)), 2)
+    else:
+        computed_match_score = 0.85
+
+    # If hard constraint, cap match score at 0.5 to reflect high experience gap
+    constraint_type = state.get("constraint_type")
+    if constraint_type == "Hard":
+        computed_match_score = min(computed_match_score, 0.45)
+
+    return {
+        "match_result": match_result,
+        "match_score": computed_match_score
+    }
+

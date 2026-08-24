@@ -25,6 +25,9 @@ def get_llm():
     try:
         groq_key = validate_groq_key()
         from langchain_groq import ChatGroq
-        return ChatGroq(model="llama-3.3-70b-versatile", groq_api_key=groq_key, temperature=0.2)
+        # Support user model choice while ensuring max_tokens=4096 to prevent LaTeX output truncation
+        model_name = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+        return ChatGroq(model=model_name, groq_api_key=groq_key, temperature=0.2, max_tokens=4096)
     except ValueError:
         return None
+

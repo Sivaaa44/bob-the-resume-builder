@@ -43,8 +43,36 @@ def run_tailor_session(jd_text: str):
     state_snapshot = app.get_state(config)
 
     while state_snapshot.next:
-        # We are paused at human_review interrupt
         values = state_snapshot.values
+        next_node = state_snapshot.next[0] if state_snapshot.next else ""
+
+        # Handle Hard Constraint interrupt
+        if "human_constraint" in next_node:
+            constraint_type = values.get("constraint_type", "Hard")
+            constraint_reason = values.get("constraint_reason", "")
+            match_score = values.get("match_score", 0.0)
+
+            print_separator()
+            print("⚠️ [HARD CONSTRAINT CHECKPOINT]")
+            print_separator()
+            print(f"Match Score       : {int(match_score * 100)}% ({match_score:.2f})")
+            print(f"Constraint Status : {constraint_type}")
+            print(f"Reason            : {constraint_reason}")
+            print_separator()
+            print("This job requires experience or seniority significantly beyond your background.")
+            print("  [1] Continue anyway (type '1' or 'continue')")
+            print("  [3] Abort session (type '3' or 'abort')")
+            print_separator()
+
+            user_input = input("Enter choice > ").strip()
+            user_action = "continue" if user_input in ["1", "continue", "approve"] else "abort"
+
+            print(f"\nSubmitting choice: '{user_action}'...")
+            app.invoke(Command(resume=user_action), config)
+            state_snapshot = app.get_state(config)
+            continue
+
+        # Handle Human Review interrupt
         pdf_path = values.get("pdf_path")
         page_count = values.get("page_count", 0)
         gap_report = values.get("gap_report", "")
@@ -114,6 +142,7 @@ def run_tailor_session(jd_text: str):
     else:
         print("[ABORTED] Session aborted by user or graph exit.")
     print_separator()
+
 
 if __name__ == "__main__":
     # Check GROQ_API_KEY early on CLI launch
