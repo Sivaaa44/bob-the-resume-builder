@@ -8,4 +8,6 @@ tectonic.zip
 data/
 output/
 frontend/node_modules
-frontend/dist
+frontend/distworkspace/
+*.egg-info/
+.pytest_cache/
