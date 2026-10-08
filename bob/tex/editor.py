@@ -33,11 +33,11 @@ class Edits:
         return (
             any(i in self.rewrites or i in self.drops for i in ids)
             or bool(self.adds.get(entry.id))
-            or (entry.id in self.orders and _ordered(ids, self.orders[entry.id]) != ids)
+            or (entry.id in self.orders and ordered(ids, self.orders[entry.id]) != ids)
         )
 
 
-def _ordered(ids: list[str], wanted: list[str]) -> list[str]:
+def ordered(ids: list[str], wanted: list[str]) -> list[str]:
     """`ids` sorted by position in `wanted`; ids not mentioned keep their relative order at the end."""
     rank = {bid: k for k, bid in enumerate(wanted)}
     return sorted(ids, key=lambda bid: (rank.get(bid, len(wanted)), ids.index(bid)))
@@ -84,7 +84,7 @@ def _render_entry(doc: ResumeDoc, entry: Entry, edits: Edits) -> str:
     if not units:
         raise EditError(f"edits would leave entry {entry.id} with no bullets")
 
-    order = _ordered(list(units), edits.orders.get(entry.id, []))
+    order = ordered(list(units), edits.orders.get(entry.id, []))
     region_end_newline = src[last.unit_span[1] - 1] == "\n"
     text = "".join(u if u.endswith("\n") else u + "\n" for u in (units[k] for k in order))
     return text if region_end_newline else text.rstrip("\n")
