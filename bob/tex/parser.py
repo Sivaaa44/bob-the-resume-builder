@@ -191,9 +191,11 @@ def _parse_entries(
         name = m.group(1)
         if name in config.heading_macros:
             spans, i = _read_groups(masked, m.end(), config.heading_macros[name])
-            title = to_plain(source[spans[0][0] : spans[0][1]]).split("|")[0].strip()
+            # "CricketBrain | FastAPI, React" → title "CricketBrain", subtitle "FastAPI, React"
+            title, _, rest = to_plain(source[spans[0][0] : spans[0][1]]).partition("|")
+            title = title.strip()
             sub_idx = config.subtitle_arg.get(name)
-            subtitle = to_plain(source[spans[sub_idx][0] : spans[sub_idx][1]]) if sub_idx is not None else ""
+            subtitle = to_plain(source[spans[sub_idx][0] : spans[sub_idx][1]]) if sub_idx is not None else rest.strip()
             slug = slugify(title)
             if slug in taken and subtitle:
                 slug = f"{slug}-{slugify(subtitle)}"
