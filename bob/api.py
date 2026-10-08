@@ -145,7 +145,9 @@ def create_app(
             raise HTTPException(404, "run not finalized yet")
         path = run.result.pdf_path if kind == "pdf" else run.result.tex_path
         media = "application/pdf" if kind == "pdf" else "application/x-tex"
-        return FileResponse(path, media_type=media, filename=f"resume-{run.id}.{kind}")
+        # inline so the PDF previews in an <iframe>; the UI's download links use the `download` attribute
+        return FileResponse(path, media_type=media, filename=f"resume-{run.id}.{kind}",
+                            content_disposition_type="inline" if kind == "pdf" else "attachment")
 
     @app.get("/api/runs/{run_id}/pdf")
     def pdf(run_id: str):

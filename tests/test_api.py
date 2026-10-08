@@ -42,6 +42,7 @@ def test_full_flow_over_http(client):
     assert done["status"] == "finalized" and done["result"]["pages"] == 1
     pdf = client.get(f"/api/runs/{rid}/pdf")
     assert pdf.status_code == 200 and pdf.headers["content-type"] == "application/pdf"
+    assert pdf.headers["content-disposition"].startswith("inline")  # previews in an iframe
     assert "Indexed 50k support tickets" in client.get(f"/api/runs/{rid}/tex").text
 
     listed = client.get("/api/runs").json()
