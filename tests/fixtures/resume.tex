@@ -1,0 +1,135 @@
+%-------------------------
+% Resume in Latex (Jake's Resume style)
+% License : MIT
+%------------------------
+
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\input{glyphtounicode}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+
+\urlstyle{same}
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+\titleformat{\section}{
+  \vspace{-4pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+
+\pdfgentounicode=1
+
+\newcommand{\resumeItem}[1]{
+  \item\small{
+    {#1 \vspace{-2pt}}
+  }
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & #2 \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeProjectHeading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \small#1 & #2 \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+\begin{document}
+
+\begin{center}
+    \textbf{\Huge \scshape Alex Rivera} \\ \vspace{1pt}
+    \small 555-010-2000 $|$ \href{mailto:alex@example.com}{\underline{alex@example.com}} $|$
+    \href{https://github.com/alexr}{\underline{github.com/alexr}}
+\end{center}
+
+\section{Education}
+  \resumeSubHeadingListStart
+    \resumeSubheading
+      {State University}{Springfield, IL}
+      {Bachelor of Science in Computer Science}{Aug. 2021 -- May 2025}
+  \resumeSubHeadingListEnd
+
+\section{Experience}
+  \resumeSubHeadingListStart
+
+    \resumeSubheading
+      {Data Engineering Intern}{May 2024 -- Aug. 2024}
+      {Acme Analytics}{Chicago, IL}
+      \resumeItemListStart
+        \resumeItem{Built a multi-agent pipeline in \textbf{Python} that cut report generation time by 40\%}
+        \resumeItem{Wrote SQL transformations in Snowflake over 2M+ rows of sales data}
+        % \resumeItem{Old bullet that should be ignored}
+        \resumeItem{Exposed internal tools to LLM agents through an MCP server}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Automation Intern}{Jan. 2024 -- Apr. 2024}
+      {Globex \& Co.}{Remote}
+      \resumeItemListStart
+        \resumeItem{Automated invoice approval workflows with ServiceNow and Adobe Sign API}
+        \resumeItem{Reduced manual data entry by 15 hours/week for the finance team}
+      \resumeItemListEnd
+
+  \resumeSubHeadingListEnd
+
+\section{Projects}
+    \resumeSubHeadingListStart
+      \resumeProjectHeading
+          {\textbf{CricketBrain} $|$ \emph{FastAPI, React, SQLite, Groq}}{2024}
+          \resumeItemListStart
+            \resumeItem{Natural-language-to-SQL agent answering questions over 40k ball-by-ball records}
+            \resumeItem{Served a React\_UI with streaming answers via FastAPI}
+          \resumeItemListEnd
+    \resumeSubHeadingListEnd
+
+\section{Leadership}
+  \begin{itemize}
+    \item Organized a 200-person campus hackathon \& secured \$5k in sponsorship
+    \item Mentored 6 first-year students in data structures
+  \end{itemize}
+
+\section{Technical Skills}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+     \textbf{Languages}{: Python, SQL, JavaScript, C\#} \\
+     \textbf{Frameworks}{: FastAPI, React, Flask} \\
+     \textbf{Tools}{: Snowflake, Git, Docker, ServiceNow}
+    }}
+ \end{itemize}
+
+\end{document}

@@ -1,0 +1,14 @@
+Initech — Machine Learning Engineer
+
+About the role
+You'll build retrieval and agent systems for our analytics product.
+
+Requirements
+- Strong Python
+- Experience with vector databases
+- Kubernetes in production
+
+Nice to have
+- Snowflake or other cloud data warehousing
+
+We offer great benefits and equal opportunity employment.
