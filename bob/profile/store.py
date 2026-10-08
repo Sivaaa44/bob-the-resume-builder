@@ -69,9 +69,10 @@ def seed_profile(doc: ResumeDoc) -> Profile:
     return Profile(facts=facts, skills=skills)
 
 
-def _assign_missing_ids(raw_facts: list[dict]) -> None:
+def _assign_missing_ids(raw_facts: list[dict]) -> int:
     used = {str(f["id"]) for f in raw_facts if f.get("id")}
     n = max([int(m.group(1)) for i in used if (m := re.fullmatch(r"f(\d+)", i))], default=0)
+    assigned = 0
     for f in raw_facts:
         if not f.get("id"):
             n += 1
@@ -79,9 +80,12 @@ def _assign_missing_ids(raw_facts: list[dict]) -> None:
                 n += 1
             f["id"] = f"f{n}"
             used.add(f["id"])
+            assigned += 1
+    return assigned
 
 
-def load_profile(path: Path, doc: ResumeDoc | None = None) -> Profile:
+def load_profile(path: Path, doc: ResumeDoc | None = None, persist_ids: bool = False) -> Profile:
+    """Load and validate. With persist_ids, ids assigned to new facts are written back to the file."""
     try:
         data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as e:
@@ -95,13 +99,15 @@ def load_profile(path: Path, doc: ResumeDoc | None = None) -> Profile:
             raw.append({**_as_dict(item, path), "entry": entry_id})
     for item in data.get("general") or []:
         raw.append({**_as_dict(item, path), "entry": None})
-    _assign_missing_ids(raw)
+    assigned = _assign_missing_ids(raw)
 
     try:
         profile = Profile(facts=[Fact(**f) for f in raw], skills=data.get("skills") or {})
     except Exception as e:  # pydantic ValidationError → readable message
         raise ProfileError(f"{path}: {e}") from e
     validate_profile(profile, doc)
+    if assigned and persist_ids:
+        save_profile(profile, path, doc)
     return profile
 
 

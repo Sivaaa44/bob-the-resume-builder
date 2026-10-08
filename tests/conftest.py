@@ -57,3 +57,52 @@ def analysis():
         Requirement(id="r3", text="Kubernetes in production", importance="must", keywords=["Kubernetes"]),
         Requirement(id="r4", text="Snowflake data warehousing", importance="nice", keywords=["Snowflake"]),
     ])
+
+
+ACME = "experience.data-engineering-intern"
+GLOBEX = "experience.automation-intern"
+
+
+def scripted_llm():
+    """A FakeLLM that plays a realistic run over the fixture resume and jd.txt."""
+    from bob.llm.fake import FakeLLM
+    from bob.tailor.analyze import JDExtraction
+    from bob.tailor.match import MatchOut
+    from bob.tailor.plan import PlanOut
+
+    return FakeLLM({
+        JDExtraction: {"title": "Machine Learning Engineer", "company": "Initech", "requirements": [
+            {"text": "Strong Python", "importance": "must", "keywords": ["Python"]},
+            {"text": "Vector databases", "importance": "must", "keywords": ["vector databases"]},
+            {"text": "Kubernetes in production", "importance": "must", "keywords": ["Kubernetes"]},
+            {"text": "Snowflake data warehousing", "importance": "nice", "keywords": ["Snowflake"]},
+        ]},
+        MatchOut: {"coverage": [
+            {"requirement_id": "r2", "strength": "direct", "fact_ids": ["f11"], "note": "Pinecone is a vector DB"},
+            {"requirement_id": "r3", "strength": "none", "note": "No container orchestration experience listed"},
+        ]},
+        PlanOut: {"proposals": [
+            {"kind": "rewrite", "bullet_id": f"{ACME}.b1", "fact_ids": ["f1"], "requirement_ids": ["r1"],
+             "new_text": "Cut report generation time by 40% with a multi-agent **Python** pipeline"},
+            {"kind": "add", "entry_id": ACME, "fact_ids": ["f11"], "requirement_ids": ["r2"],
+             "new_text": "Indexed 50k support tickets in a **vector database** (Pinecone) for semantic search"},
+            {"kind": "rewrite", "bullet_id": f"{ACME}.b3", "fact_ids": ["f3"], "requirement_ids": ["r3"],
+             "new_text": "Deployed MCP server tools for LLM agents on Kubernetes"},
+            {"kind": "rewrite", "bullet_id": f"{GLOBEX}.b2", "fact_ids": ["f5"],
+             "new_text": "Saved the finance team 15 hours/week by automating manual data entry"},
+        ]},
+    })
+
+
+@pytest.fixture
+def workspace(tmp_path, resume_src, profile, doc):
+    """An initialized workspace containing the fixture resume and profile (with f11, f12)."""
+    from bob.config import Workspace
+    from bob.profile.store import save_profile
+
+    ws = Workspace(tmp_path / "ws")
+    ws.root.mkdir()
+    ws.resume_path.write_text(resume_src, encoding="utf-8")
+    profile.skills["Tools"] = profile.skills["Tools"] + ["Kubernetes"]  # pretend: user listed it but has no story
+    save_profile(profile, ws.profile_path, doc)
+    return ws
