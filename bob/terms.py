@@ -10,8 +10,11 @@ from functools import lru_cache
 
 @lru_cache(maxsize=4096)
 def _pattern(term: str) -> re.Pattern[str]:
-    words = [re.escape(w) for w in term.strip().split()]
-    body = r"[\s\-]+".join(words)
+    words = term.strip().split()
+    last = words[-1]
+    if len(last) >= 4 and last.endswith("s") and last[-2].islower():
+        words[-1] = last[:-1]  # "databases" also matches "database"
+    body = r"[\s\-]+".join(re.escape(w) for w in words)
     return re.compile(rf"(?<![A-Za-z0-9]){body}(?:e?s)?(?![A-Za-z0-9+#])", re.IGNORECASE)
 
 
@@ -31,6 +34,32 @@ def find_terms(text: str, vocabulary: list[str] | set[str]) -> list[str]:
             found.append(term)
             spans.extend(free)
     return found
+
+
+def same_term(a: str, b: str) -> bool:
+    """True if a and b name the same thing (case, spacing, hyphens and plurals aside)."""
+    return contains_term(a, b) and contains_term(b, a)
+
+
+_TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9]*(?:[.+#/-]*[A-Za-z0-9+#]+)*[+#]*")
+
+
+def name_like_tokens(text: str) -> list[str]:
+    """Tokens that look like tools, products or names: "AWS", "PostgreSQL", "Node.js", "C++",
+    or a capitalized word mid-sentence. Used to catch terms no vocabulary knows about."""
+    out = []
+    for k, m in enumerate(_TOKEN_RE.finditer(text)):
+        tok = m.group(0)
+        if m.start() > 0 and text[m.start() - 1].isdigit():
+            continue  # unit glued to a number: "2M+", "40k", "3x"
+        sentence_start = k == 0 or text[: m.start()].rstrip().endswith((".", ":", ";", "!", "?"))
+        if (
+            any(c.isupper() for c in tok[1:])
+            or any(c.isdigit() or c in ".+#" for c in tok)
+            or (tok[0].isupper() and not sentence_start)
+        ):
+            out.append(tok.rstrip("."))
+    return list(dict.fromkeys(out))
 
 
 def norm(term: str) -> str:
