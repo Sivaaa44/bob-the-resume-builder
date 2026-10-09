@@ -1,0 +1,32 @@
+\documentclass[letterpaper,10pt]{article}
+\usepackage[margin=0.6in]{geometry}
+\usepackage{enumitem}
+\pagestyle{empty}
+% A custom heading macro Bob has no config for (like many personal templates)
+\newcommand{\job}[3]{\noindent\textbf{#1} \hfill #3 \\ \textit{#2}}
+\newcommand{\resumeItemListStart}{\begin{itemize}[leftmargin=*,itemsep=0pt]}
+\newcommand{\resumeItemListEnd}{\end{itemize}}
+\newcommand{\resumeItem}[1]{\item #1}
+
+\begin{document}
+
+\section*{Experience}
+
+\job{Gen Digital -- Software Engineering Intern}{Chennai}{Jan 2026 -- Jul 2026}
+\resumeItemListStart
+  \resumeItem{Built SaaS connectors pulling contractor data from ServiceNow and routing agreements via Adobe Sign API}
+  \resumeItem{Wrote two Automation Anywhere A360 bots, saving about 40 hours/month of manual tracking}
+\resumeItemListEnd
+
+\job{AMD -- Software Development Intern}{Hyderabad}{Jul 2025 -- Sep 2025}
+\resumeItemListStart
+  \resumeItem{Built a multi-agent data assistant in Python that queries Snowflake in plain English}
+  \resumeItem{Designed Cortex semantic models used by sub-agents to generate accurate SQL}
+\resumeItemListEnd
+
+\job{Blucheetah -- Software Development Intern}{Chennai}{Jan 2025 -- Feb 2025}
+\resumeItemListStart
+  \resumeItem{Built multi-room video calling with WebRTC and WebSocket signaling}
+\resumeItemListEnd
+
+\end{document}

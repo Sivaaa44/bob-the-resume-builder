@@ -7,7 +7,7 @@ the file (preamble, headings, spacing, comments) is copied byte-for-byte.
 from dataclasses import dataclass, field
 
 from bob.tex.model import Entry, ResumeDoc
-from bob.tex.text import to_latex
+from bob.tex.text import mask_comments, to_latex
 
 
 class EditError(ValueError):
@@ -61,13 +61,28 @@ def _validate(doc: ResumeDoc, edits: Edits) -> None:
             raise EditError(f"entry {eid} has no bullet list to add to")
 
 
+def _reorderable(doc: ResumeDoc, entry: Entry) -> bool:
+    """True if the text between consecutive bullets is only whitespace and comments."""
+    return not any(mask_comments(_leading(doc, b)).strip() for b in entry.bullets[1:])
+
+
+def _leading(doc: ResumeDoc, b) -> str:
+    """Text in a bullet's unit before the line the bullet itself is on."""
+    own_line = doc.source.rfind("\n", 0, b.content_span[0]) + 1
+    return doc.source[b.unit_span[0] : max(b.unit_span[0], own_line)]
+
+
 def _render_entry(doc: ResumeDoc, entry: Entry, edits: Edits) -> str:
     src = doc.source
     units: dict[str, str] = {}
     for b in entry.bullets:
-        if b.id in edits.drops:
-            continue
         start, end = b.unit_span
+        if b.id in edits.drops:
+            # keep any non-bullet text riding on this bullet (e.g. a sub-heading); drop only the bullet
+            leading = _leading(doc, b)
+            if mask_comments(leading).strip():
+                units[f"{b.id}.kept"] = leading
+            continue
         unit = src[start:end]
         if b.id in edits.rewrites:
             cs, ce = b.content_span[0] - start, b.content_span[1] - start
@@ -81,10 +96,13 @@ def _render_entry(doc: ResumeDoc, entry: Entry, edits: Edits) -> str:
         body = to_latex(nb.text)
         units[nb.id] = f"{indent}\\item {body}\n" if last.macro == "item" else f"{indent}\\{last.macro}{{{body}}}\n"
 
-    if not units:
+    if not [k for k in units if not k.endswith(".kept")]:
         raise EditError(f"edits would leave entry {entry.id} with no bullets")
 
-    order = ordered(list(units), edits.orders.get(entry.id, []))
+    # Safety net: if anything other than blank lines/comments sits between this entry's bullets
+    # (a sub-heading, a misparsed job title...), reordering would drag it along. Keep page order.
+    wanted = edits.orders.get(entry.id, []) if _reorderable(doc, entry) else []
+    order = ordered(list(units), wanted)
     region_end_newline = src[last.unit_span[1] - 1] == "\n"
     text = "".join(u if u.endswith("\n") else u + "\n" for u in (units[k] for k in order))
     return text if region_end_newline else text.rstrip("\n")

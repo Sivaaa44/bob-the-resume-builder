@@ -200,3 +200,56 @@ def test_edited_resume_compiles(resume_src, tmp_path):
         skills={"technical-skills.tools": ["Docker", "Snowflake"]},
     )
     assert pdflatex_pages(render(doc, edits), tmp_path) == 1
+
+
+# ---------- templates with unknown heading macros ----------
+
+def test_unknown_heading_macro_still_splits_entries():
+    from tests.conftest import FIXTURES
+
+    doc = parse((FIXTURES / "custom_headings.tex").read_text())
+    entries = doc.entries()
+    assert [(e.title, e.subtitle, len(e.bullets)) for e in entries] == [
+        ("Gen Digital \u2013 Software Engineering Intern", "Chennai", 2),
+        ("AMD \u2013 Software Development Intern", "Hyderabad", 2),
+        ("Blucheetah \u2013 Software Development Intern", "Chennai", 1),
+    ]
+    assert entries[1].id == "experience.amd-software-development-intern"
+    assert "Snowflake" in entries[1].bullets[0].text
+
+
+def test_reorder_never_moves_bullets_across_non_bullet_content():
+    # one list whose bullets are separated by a sub-heading: reordering would carry the heading along
+    src = (
+        "\\begin{document}\n\\section{Work}\n\\begin{itemize}\n"
+        "  \\resumeItem{First}\n  \\textbf{Sub-team}\n  \\resumeItem{Second}\n\\end{itemize}\n\\end{document}\n"
+    )
+    doc = parse(src)
+    entry = doc.entries()[0]
+    assert [b.text for b in entry.bullets] == ["First", "Second"]
+    out = render(doc, Edits(orders={entry.id: [entry.bullets[1].id, entry.bullets[0].id]}))
+    assert out == src  # order request ignored rather than moving the heading
+
+
+def test_dropping_a_bullet_keeps_the_heading_riding_on_it():
+    src = (
+        "\\begin{document}\n\\section{Work}\n\\begin{itemize}\n"
+        "  \\resumeItem{First}\n  \\textbf{Sub-team}\n  \\resumeItem{Second}\n  \\resumeItem{Third}\n"
+        "\\end{itemize}\n\\end{document}\n"
+    )
+    doc = parse(src)
+    out = render(doc, Edits(drops={doc.entries()[0].bullets[1].id}))
+    assert "Sub-team" in out and "Second" not in out and "Third" in out
+
+
+def test_custom_template_edits_compile(tmp_path):
+    from tests.conftest import FIXTURES
+
+    doc = parse((FIXTURES / "custom_headings.tex").read_text())
+    gen, amd, blu = doc.entries()
+    edits = Edits(rewrites={gen.bullets[0].id: "Built **SaaS connectors** for ServiceNow & Adobe Sign API"},
+                  orders={amd.id: [amd.bullets[1].id, amd.bullets[0].id]},
+                  adds={blu.id: [NewBullet("n", "Handled 30+ concurrent live classes")]})
+    out = parse(render(doc, edits))
+    assert [b.text for b in out.entries()[1].bullets][0].startswith("Designed Cortex")
+    assert pdflatex_pages(render(doc, edits), tmp_path) == 1

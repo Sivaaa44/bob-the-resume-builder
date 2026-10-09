@@ -54,14 +54,40 @@ def cmd_init(args: argparse.Namespace) -> int:
     if ws.profile_path.exists() and not args.force:
         print(f"{ws.profile_path} already exists (use --force to overwrite).", file=sys.stderr)
         return 1
+    kept, orphaned = _user_facts_to_keep(ws, doc) if args.force else ([], [])
     ws.root.mkdir(parents=True, exist_ok=True)
     ws.resume_path.write_text(src, encoding="utf-8")
     profile = seed_profile(doc)
+    taken = profile.fact_ids()
+    for f in kept:  # keep hand-written facts; give them a fresh id if a seeded fact took theirs
+        if f.id in taken:
+            f.id = f"u{len(taken) + 1}"
+        taken.add(f.id)
+        profile.facts.append(f)
     save_profile(profile, ws.profile_path, doc)
     print(f"Workspace ready at {ws.root}")
-    print(f"  {len(doc.bullets())} bullets in {len(doc.entries())} entries → {len(profile.facts)} facts")
+    print(f"  {len(doc.bullets())} bullets in {len(doc.entries())} entries → {len(profile.facts)} facts"
+          + (f" (kept {len(kept)} you added)" if kept else ""))
+    if orphaned:
+        print("These facts you added belonged to an entry that no longer exists. Re-add them under the right entry:")
+        for f in orphaned:
+            print(f"  - [{f.entry}] {f.text}")
     print(f"Next: open {ws.profile_path}, add facts that didn't fit on the page and skill aliases.")
     return 0
+
+
+def _user_facts_to_keep(ws: Workspace, doc: ResumeDoc) -> tuple[list, list]:
+    """Hand-written facts from an existing profile.yaml: (still valid, entry no longer exists)."""
+    if not ws.profile_path.exists():
+        return [], []
+    try:
+        old = load_profile(ws.profile_path)  # no doc: entry ids may have changed
+    except ProfileError:
+        return [], []
+    entry_ids = {e.id for e in doc.entries()}
+    user = [f for f in old.facts if f.source == "user"]
+    return ([f for f in user if f.entry is None or f.entry in entry_ids],
+            [f for f in user if f.entry is not None and f.entry not in entry_ids])
 
 
 def cmd_facts(args: argparse.Namespace) -> int:
@@ -118,6 +144,11 @@ def format_run(run: Run, ctx: pipeline.Context) -> str:
     if run.skills_added:
         state = "will be added" if run.include_skill_additions else "skipped"
         out += ["", f"Skills from your profile the JD asks for ({state}): {', '.join(run.skills_added)}"]
+    if run.token_usage:
+        steps = " · ".join(f"{k} {u.total:,}" for k, u in run.token_usage.items())
+        total = run.total_usage
+        out += ["", f"Tokens: {total.total:,} total ({total.prompt_tokens:,} in / {total.completion_tokens:,} out, "
+                    f"{total.calls} calls) — {steps}"]
     if run.result:
         r = run.result
         out += ["", f"Built: {r.pdf_path} — {r.pages} page(s){'' if r.fits else ' (OVER BUDGET)'}"]
