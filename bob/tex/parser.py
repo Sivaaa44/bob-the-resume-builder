@@ -85,6 +85,35 @@ def _line_end(masked: str, pos: int) -> int:
 
 _SECTION_RE = re.compile(r"\\section\*?(?![A-Za-z])")
 _SKILL_RE = re.compile(r"\\textbf\s*\{")
+# a bullet list closing: \end{itemize} or Jake-style \resumeItemListEnd / \resumeSubHeadingListEnd
+_LIST_END_RE = re.compile(r"\\end\{itemize\}|\\[A-Za-z]*ListEnd(?![A-Za-z])")
+_MACRO_ARG_RE = re.compile(r"\\([A-Za-z]+)\*?\s*\{")
+# layout/list macros that never carry an entry's title
+_NOT_HEADINGS = {"begin", "end", "vspace", "hspace", "item", "small", "footnotesize", "scriptsize", "large",
+                 "Large", "normalsize", "centering", "hfill", "newline", "label", "setlength", "addtolength"}
+
+
+def _infer_heading(source: str, masked: str, start: int, end: int) -> tuple[str, str]:
+    """Title/subtitle for an entry whose heading macro Bob doesn't know, e.g.
+    `\\job{Gen Digital -- SWE Intern}{Chennai}{2026}` → ("Gen Digital – SWE Intern", "Chennai").
+    Uses the brace arguments of the first non-layout macro between `start` and `end`."""
+    for m in _MACRO_ARG_RE.finditer(masked, start, end):
+        name = m.group(1)
+        if name in _NOT_HEADINGS or name.endswith(("ListStart", "ListEnd")):
+            continue
+        args, i = [], m.end() - 1
+        while i < end and masked[i] == "{":
+            close = match_brace(masked, i)
+            args.append(to_plain(source[i + 1 : close]))
+            i = _skip_ws(masked, close + 1)
+        args = [a for a in args if re.search(r"[A-Za-z]{2}", a)]
+        if args:
+            title, _, rest = args[0].partition("|")
+            return title.strip(), (args[1] if len(args) > 1 else rest.strip())
+    gap = re.sub(r"\\(?:begin|end)\{[^}]*\}(?:\[[^\]]*\])?|\\[A-Za-z]*List(?:Start|End)", " ", mask_comments(source[start:end]))
+    return to_plain(gap)[:60].strip(), ""
+
+
 _ITEM_STOP_RE = re.compile(r"\\item(?![A-Za-z])|\\end\{itemize\}|\\begin\{itemize\}|\\end\{document\}")
 
 
@@ -182,6 +211,18 @@ def _parse_entries(
     taken: set[str] = set()
     raw_bullets: list[list[tuple[str, Span, Span]]] = []  # per entry: (macro, content_span, macro_span)
     current: Entry | None = None
+    last_end = start          # end of the previous bullet (or of the last recognized heading)
+    fresh_heading = False     # a recognized heading started `current` and has no bullets yet
+
+    def new_entry(title: str, subtitle: str = "", fallback_slug: str | None = None) -> Entry:
+        slug = slugify(title) if title else (fallback_slug or "items")
+        if slug in taken and subtitle:
+            slug = f"{slug}-{slugify(subtitle)}"
+        entry = Entry(id=f"{section.id}.{_unique(slug, taken)}", section_id=section.id,
+                      title=title or section.title, subtitle=subtitle)
+        entries.append(entry)
+        raw_bullets.append([])
+        return entry
 
     i = start
     while True:
@@ -196,13 +237,8 @@ def _parse_entries(
             title = title.strip()
             sub_idx = config.subtitle_arg.get(name)
             subtitle = to_plain(source[spans[sub_idx][0] : spans[sub_idx][1]]) if sub_idx is not None else rest.strip()
-            slug = slugify(title)
-            if slug in taken and subtitle:
-                slug = f"{slug}-{slugify(subtitle)}"
-            current = Entry(id=f"{section.id}.{_unique(slug, taken)}", section_id=section.id,
-                            title=title, subtitle=subtitle)
-            entries.append(current)
-            raw_bullets.append([])
+            current = new_entry(title, subtitle)
+            last_end, fresh_heading = i, True
             continue
 
         if name in config.bullet_macros:
@@ -222,12 +258,13 @@ def _parse_entries(
                 c_start, c_end = c_start + 1, c_end - 1  # \item{text}
             content = (c_start, c_end)
 
-        if current is None:
-            current = Entry(id=f"{section.id}.{_unique('items', taken)}", section_id=section.id,
-                            title=section.title)
-            entries.append(current)
-            raw_bullets.append([])
+        # A bullet list closed since the previous bullet → this is a different entry whose heading
+        # macro we don't know (custom templates). Never let one entry swallow several jobs.
+        list_closed = current is not None and not fresh_heading and _LIST_END_RE.search(masked, last_end, macro_span[0])
+        if current is None or list_closed:
+            current = new_entry(*_infer_heading(source, masked, last_end, macro_span[0]))
         raw_bullets[-1].append((name, content, macro_span))
+        last_end, fresh_heading = macro_span[1], False
 
     for entry, raws in zip(entries, raw_bullets):
         prev_end = None

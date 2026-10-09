@@ -8,6 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from bob.llm.base import Usage
 from bob.tailor.models import Coverage, JobAnalysis, Proposal
 
 RunStatus = Literal["awaiting_review", "finalized", "aborted"]
@@ -39,6 +40,18 @@ class Run(BaseModel):
     skills_added: list[str] = Field(default_factory=list)   # preview: profile skills the JD asks for
     include_skill_additions: bool = True
     result: BuildResult | None = None
+    token_usage: dict[str, Usage] = Field(default_factory=dict)   # step name → tokens used
+
+    def record_usage(self, step: str, used: Usage) -> None:
+        if used.calls:
+            self.token_usage[step] = self.token_usage.get(step, Usage()).add(used)
+
+    @property
+    def total_usage(self) -> Usage:
+        total = Usage()
+        for u in self.token_usage.values():
+            total = total.add(u)
+        return total
 
     def proposal(self, proposal_id: str) -> Proposal:
         for p in self.proposals:

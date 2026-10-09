@@ -44,6 +44,11 @@ export default function RunView({ runId }) {
           <h1>{a.title || 'Untitled role'}{a.company && <span className="muted"> at {a.company}</span>}</h1>
           <p className="muted small">
             {shortDate(run.created_at)} · {run.status.replace('_', ' ')}
+            {run.tokens?.total > 0 && (
+              <span title={Object.entries(run.token_usage).map(([k, u]) => `${k}: ${(u.prompt_tokens + u.completion_tokens).toLocaleString()}`).join('\n')}>
+                {' '}· {run.tokens.total.toLocaleString()} tokens ({run.tokens.calls} calls)
+              </span>
+            )}
           </p>
         </div>
         <div className="score" title="Share of requirements backed by your facts (must-haves count double)">

@@ -30,6 +30,20 @@ def test_start_run_verifies_and_persists(ctx):
     assert "initech-machine-learning-engineer" in run.id
 
 
+def test_token_usage_is_recorded_per_step(ctx):
+    from bob.tailor.plan import PlanOut
+
+    run = pipeline.start_run(ctx, "JD")
+    assert set(run.token_usage) == {"analyze", "match", "plan"}  # verify uses no LLM unless strict
+    assert all(u.calls == 1 and u.total > 0 for u in run.token_usage.values())
+    ctx.llm.responses[PlanOut] = {"proposals": [{"kind": "rewrite", "bullet_id": f"{ACME}.b3", "fact_ids": ["f3"],
+                                                 "new_text": "Gave LLM agents internal tools via an MCP server"}]}
+    pipeline.regenerate(ctx, run, "p3", "shorter")
+    saved = ctx.store.load(run.id)
+    assert saved.token_usage["regenerate"].calls == 1
+    assert saved.total_usage.total == sum(u.total for u in saved.token_usage.values())
+
+
 def test_full_flow_builds_exactly_the_accepted_changes(ctx, tmp_path, resume_src):
     pdflatex_pages(resume_src, tmp_path)  # skip without TeX
     run = pipeline.start_run(ctx, "JD")
@@ -129,7 +143,8 @@ def test_format_run_mentions_gaps_and_blocked(ctx):
     text = format_run(run, ctx)
     assert "✗ r3 must Kubernetes in production" in text
     assert "(BLOCKED)" in text and "✗ terms" in text
-    assert "Coverage 71%" in text  # r1+r2 (must, 2 each) + r4 (nice, 1) of 7
+    assert "Coverage 71%" in text
+    assert "Tokens:" in text and "analyze" in text  # r1+r2 (must, 2 each) + r4 (nice, 1) of 7
 
 
 def test_cli_tailor_and_finalize(workspace, monkeypatch, capsys):

@@ -107,3 +107,24 @@ def test_cli_init_and_facts(tmp_path, capsys):
     assert main(["init", str(FIXTURES / "resume.tex"), "--home", str(home)]) == 1  # no silent overwrite
     assert main(["facts", "--home", str(home)]) == 0
     assert "Data Engineering Intern" in capsys.readouterr().out
+
+
+def test_init_force_keeps_hand_written_facts(tmp_path, capsys):
+    from tests.conftest import FIXTURES
+
+    home = tmp_path / "ws"
+    assert main(["init", str(FIXTURES / "resume.tex"), "--home", str(home)]) == 0
+    prof = home / "profile.yaml"
+    prof.write_text(
+        prof.read_text()
+        .replace("general: []", "general:\n- text: AWS Certified (2024)")
+        .replace("  experience.automation-intern:", "  experience.gone:\n  - text: Old entry fact\n"
+                 "  experience.automation-intern:\n  - text: Led the RPA guild")
+    )
+    capsys.readouterr()
+    assert main(["init", str(FIXTURES / "resume.tex"), "--home", str(home), "--force"]) == 0
+    out = capsys.readouterr().out
+    assert "kept 2 you added" in out and "[experience.gone] Old entry fact" in out
+    text = prof.read_text()
+    assert "AWS Certified (2024)" in text and "Led the RPA guild" in text and "Old entry fact" not in text
+    assert main(["facts", "--home", str(home)]) == 0  # the regenerated profile is valid

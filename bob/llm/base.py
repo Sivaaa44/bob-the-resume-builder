@@ -13,7 +13,31 @@ class LLMError(RuntimeError):
     pass
 
 
+class Usage(BaseModel):
+    """Token counts as reported by the provider (summed over calls, retries included)."""
+
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    calls: int = 0
+
+    @property
+    def total(self) -> int:
+        return self.prompt_tokens + self.completion_tokens
+
+    def add(self, other: "Usage") -> "Usage":
+        return Usage(prompt_tokens=self.prompt_tokens + other.prompt_tokens,
+                     completion_tokens=self.completion_tokens + other.completion_tokens,
+                     calls=self.calls + other.calls)
+
+    def minus(self, other: "Usage") -> "Usage":
+        return Usage(prompt_tokens=self.prompt_tokens - other.prompt_tokens,
+                     completion_tokens=self.completion_tokens - other.completion_tokens,
+                     calls=self.calls - other.calls)
+
+
 class LLM(Protocol):
+    usage: Usage  # running total for this client; the pipeline diffs it per step
+
     def complete_json(self, system: str, user: str, schema: type[T]) -> T:
         """Ask for a JSON object matching `schema`; return it validated."""
         ...

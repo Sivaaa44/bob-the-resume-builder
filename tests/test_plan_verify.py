@@ -179,3 +179,23 @@ def test_replan_one_keeps_id_and_target(doc, profile, analysis, coverage):
     assert (new.id, new.bullet_id, new.new_text) == ("p7", f"{ACME}.b1", "Shorter: cut report time 40% in Python")
     assert "make it shorter" in llm.calls[0][1] and "rewrite of bullet" in llm.calls[0][1]
     assert replan_one(target, "again", doc, profile, analysis, coverage, llm) is None
+
+
+def test_custom_template_blocks_moving_amd_work_into_gen_digital():
+    """Regression: on a template with unknown heading macros, all jobs were parsed as one entry,
+    so AMD/Blucheetah facts could be rewritten into the Gen Digital section."""
+    from bob.profile.store import seed_profile
+    from bob.tailor.models import JobAnalysis
+    from bob.tex.parser import parse
+    from tests.conftest import FIXTURES
+
+    doc = parse((FIXTURES / "custom_headings.tex").read_text())
+    gen, amd, _ = doc.entries()
+    profile = seed_profile(doc)
+    amd_fact = next(f for f in profile.facts if "Snowflake" in f.text)
+    assert amd_fact.entry == amd.id
+
+    p = Proposal(id="p1", kind="add", entry_id=gen.id, fact_ids=[amd_fact.id],
+                 new_text="Built a multi-agent data assistant in Python that queries Snowflake")
+    checks = verify(p, doc, profile, JobAnalysis(requirements=[]), [])
+    assert "facts_scope" in errors(checks)

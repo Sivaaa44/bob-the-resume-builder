@@ -34,7 +34,8 @@ class RunOptions(BaseModel):
 
 
 def run_view(run: Run) -> dict:
-    return {**run.model_dump(), "score": round(coverage_score(run.analysis, run.coverage), 3)}
+    return {**run.model_dump(), "score": round(coverage_score(run.analysis, run.coverage), 3),
+            "tokens": run.total_usage.model_dump() | {"total": run.total_usage.total}}
 
 
 def create_app(
