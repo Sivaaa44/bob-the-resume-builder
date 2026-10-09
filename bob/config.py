@@ -37,7 +37,7 @@ class Settings:
     llm_api_key: str = field(
         default_factory=lambda: os.getenv("BOB_LLM_API_KEY") or os.getenv("GROQ_API_KEY", "")
     )
-    llm_model: str = field(default_factory=lambda: os.getenv("BOB_LLM_MODEL", "llama-3.3-70b-versatile"))
+    llm_model: str = field(default_factory=lambda: os.getenv("BOB_LLM_MODEL", "openai/gpt-oss-20b"))
     max_pages: int = field(default_factory=lambda: int(os.getenv("BOB_MAX_PAGES", "1")))
 
     @property
