@@ -59,6 +59,33 @@ def test_openai_compat_falls_back_when_groq_json_mode_rejects():
     assert "response_format" in seen[0] and "response_format" not in seen[1]
 
 
+def test_rate_limit_waits_and_retries():
+    seen, waits = [], []
+    limited = httpx.Response(429, json={"error": {"message": "Rate limit reached ... Please try again in 26.205s."}})
+    llm = OpenAICompatLLM("https://x/v1", "k", "m", client=_client([limited, '{"requirements": []}'], seen),
+                          sleep=waits.append)
+    assert llm.complete_json("s", "u", JDExtraction).requirements == []
+    assert waits == [pytest.approx(26.705)] and len(seen) == 2
+
+
+def test_rate_limit_gives_up_when_wait_is_too_long_or_retries_run_out():
+    long_wait = httpx.Response(429, headers={"retry-after": "3600"}, text="daily limit")
+    llm = OpenAICompatLLM("https://x/v1", "k", "m", client=_client([long_wait], []), sleep=lambda s: None)
+    with pytest.raises(LLMError, match="429"):
+        llm.complete_json("s", "u", JDExtraction)
+    short = lambda: httpx.Response(429, headers={"retry-after": "1"}, text="busy")  # noqa: E731
+    llm = OpenAICompatLLM("https://x/v1", "k", "m", client=_client([short(), short(), short()], []), sleep=lambda s: None)
+    with pytest.raises(LLMError, match="429"):
+        llm.complete_json("s", "u", JDExtraction)
+
+
+def test_retry_after_parsing():
+    from bob.llm.openai_compat import retry_after_seconds
+
+    assert retry_after_seconds(httpx.Response(429, text="Please try again in 1m2.5s.")) == 62.5
+    assert retry_after_seconds(httpx.Response(429, text="slow down")) is None
+
+
 def test_other_400s_still_fail_loudly():
     llm = OpenAICompatLLM("https://x/v1", "k", "m", client=_client([httpx.Response(400, text="model not found")], []))
     with pytest.raises(LLMError, match="model not found"):
