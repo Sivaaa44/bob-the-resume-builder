@@ -15,7 +15,7 @@ from typing import Literal
 from bob.build.compile import CompileResult, compile_tex
 from bob.build.fit import fit
 from bob.config import Settings, Workspace
-from bob.llm.base import LLM
+from bob.llm.base import LLM, Usage
 from bob.profile.model import Profile
 from bob.profile.store import load_profile
 from bob.runs import BuildResult, DroppedBullet, Run, RunStore, now_iso
@@ -66,6 +66,23 @@ def load_context(ws: Workspace, llm: LLM | None = None, settings: Settings | Non
     return Context(ws=ws, doc=doc, profile=profile, llm=llm, settings=settings)
 
 
+class _Meter:
+    """Tokens used per step, measured as the change in the client's running total."""
+
+    def __init__(self, llm: LLM):
+        self.llm = llm
+        self.steps: dict[str, Usage] = {}
+
+    def run(self, step: str, fn, *args, **kwargs):
+        before = getattr(self.llm, "usage", Usage())
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            used = getattr(self.llm, "usage", Usage()).minus(before)
+            if used.calls:
+                self.steps[step] = self.steps.get(step, Usage()).add(used)
+
+
 def _need_llm(ctx: Context) -> LLM:
     if ctx.llm is None:
         raise PipelineError("this step needs an LLM (set BOB_LLM_API_KEY)")
@@ -77,15 +94,16 @@ def start_run(ctx: Context, jd_text: str, strict: bool = False) -> Run:
     if not jd_text.strip():
         raise PipelineError("the job description is empty")
     llm = _need_llm(ctx)
-    analysis = analyze_jd(jd_text, llm)
-    coverage = match(analysis, ctx.profile, llm, ctx.doc)
-    proposals = plan(ctx.doc, ctx.profile, analysis, coverage, llm)
-    verify_all(proposals, ctx.doc, ctx.profile, analysis, coverage, llm if strict else None)
+    meter = _Meter(llm)
+    analysis = meter.run("analyze", analyze_jd, jd_text, llm)
+    coverage = meter.run("match", match, analysis, ctx.profile, llm, ctx.doc)
+    proposals = meter.run("plan", plan, ctx.doc, ctx.profile, analysis, coverage, llm)
+    meter.run("verify", verify_all, proposals, ctx.doc, ctx.profile, analysis, coverage, llm if strict else None)
     _, skills_added = tailor_skills(ctx.doc, ctx.profile, analysis)
 
     run = Run(id=ctx.store.new_id(analysis), created_at=now_iso(), jd_text=jd_text,
               resume_sha=ctx.resume_sha, analysis=analysis, coverage=coverage,
-              proposals=proposals, skills_added=skills_added)
+              proposals=proposals, skills_added=skills_added, token_usage=meter.steps)
     ctx.store.save(run)
     return run
 
@@ -137,10 +155,16 @@ def accept_all_passing(ctx: Context, run: Run) -> int:
 def regenerate(ctx: Context, run: Run, proposal_id: str, feedback: str, strict: bool = False) -> Proposal:
     llm = _need_llm(ctx)
     old = run.proposal(proposal_id)
-    new = replan_one(old, feedback, ctx.doc, ctx.profile, run.analysis, run.coverage, llm)
-    if new is None:
-        raise PipelineError("the model didn't return a usable proposal; try different feedback")
-    new.checks = verify(new, ctx.doc, ctx.profile, run.analysis, run.coverage, llm if strict else None)
+    meter = _Meter(llm)
+    try:
+        new = meter.run("regenerate", replan_one, old, feedback, ctx.doc, ctx.profile, run.analysis, run.coverage, llm)
+        if new is None:
+            raise PipelineError("the model didn't return a usable proposal; try different feedback")
+        new.checks = meter.run("regenerate", verify, new, ctx.doc, ctx.profile, run.analysis, run.coverage,
+                               llm if strict else None)
+    finally:
+        for step, used in meter.steps.items():
+            run.record_usage(step, used)
     new.status = "blocked" if new.errors else "pending"
     run.proposals[run.proposals.index(old)] = new
     if run.status == "finalized":

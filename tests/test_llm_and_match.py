@@ -42,6 +42,16 @@ def test_openai_compat_success_and_request_shape():
     assert '"importance": "must|nice"' in body["messages"][0]["content"]  # shape sketch, not a raw schema
 
 
+def test_openai_compat_counts_reported_usage():
+    def handler(request):
+        return httpx.Response(200, json={"choices": [{"message": {"content": '{"requirements": []}'}}],
+                                         "usage": {"prompt_tokens": 1200, "completion_tokens": 300}})
+    llm = OpenAICompatLLM("https://x/v1", "k", "m", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    llm.complete_json("s", "u", JDExtraction)
+    llm.complete_json("s", "u", JDExtraction)
+    assert (llm.usage.prompt_tokens, llm.usage.completion_tokens, llm.usage.calls, llm.usage.total) == (2400, 600, 2, 3000)
+
+
 def test_openai_compat_repairs_once():
     seen = []
     llm = OpenAICompatLLM("https://x/v1", "k", "m", client=_client(["oops", '{"requirements": []}'], seen))

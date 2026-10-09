@@ -26,6 +26,7 @@ def test_full_flow_over_http(client):
     run = r.json()
     rid = run["id"]
     assert run["score"] == pytest.approx(5 / 7, abs=1e-3)
+    assert run["tokens"]["calls"] == 3 and run["tokens"]["total"] > 0
     assert [p["status"] for p in run["proposals"]] == ["pending", "pending", "blocked", "pending"]
 
     assert client.post(f"/api/runs/{rid}/proposals/p3", json={"action": "accept"}).status_code == 400
