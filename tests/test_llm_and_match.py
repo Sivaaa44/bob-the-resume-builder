@@ -39,7 +39,7 @@ def test_openai_compat_success_and_request_shape():
     assert llm.complete_json("sys", "usr", JDExtraction).requirements == []
     body = seen[0]
     assert body["model"] == "m" and body["response_format"] == {"type": "json_object"}
-    assert "JSON Schema" in body["messages"][0]["content"]
+    assert '"importance": "must|nice"' in body["messages"][0]["content"]  # shape sketch, not a raw schema
 
 
 def test_openai_compat_repairs_once():
@@ -47,6 +47,31 @@ def test_openai_compat_repairs_once():
     llm = OpenAICompatLLM("https://x/v1", "k", "m", client=_client(["oops", '{"requirements": []}'], seen))
     assert llm.complete_json("s", "u", JDExtraction).requirements == []
     assert "invalid" in seen[1]["messages"][-1]["content"]
+
+
+def test_openai_compat_falls_back_when_groq_json_mode_rejects():
+    seen = []
+    groq_400 = httpx.Response(400, json={"error": {"message": "Failed to validate JSON.", "code": "json_validate_failed",
+                                                   "failed_generation": ""}})
+    llm = OpenAICompatLLM("https://x/v1", "k", "m",
+                          client=_client([groq_400, 'Here you go:\n```json\n{"requirements": []}\n```'], seen))
+    assert llm.complete_json("s", "u", JDExtraction).requirements == []
+    assert "response_format" in seen[0] and "response_format" not in seen[1]
+
+
+def test_other_400s_still_fail_loudly():
+    llm = OpenAICompatLLM("https://x/v1", "k", "m", client=_client([httpx.Response(400, text="model not found")], []))
+    with pytest.raises(LLMError, match="model not found"):
+        llm.complete_json("s", "u", JDExtraction)
+
+
+def test_schema_sketch_resolves_refs_and_enums():
+    from bob.llm.base import schema_sketch
+    from bob.tailor.plan import PlanOut
+
+    sketch = json.loads(schema_sketch(PlanOut))
+    item = sketch["proposals"][0]
+    assert item["kind"] == "rewrite|add" and item["bullet_id"] == "string" and item["fact_ids"] == ["string"]
 
 
 def test_openai_compat_gives_up_after_retry():
