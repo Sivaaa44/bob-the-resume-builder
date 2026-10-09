@@ -6,6 +6,10 @@ from bob.config import Settings
 from bob.llm.base import LLMError, T, parse_json_response, schema_instructions
 
 
+class _JSONModeRejected(LLMError):
+    """The provider's JSON mode refused the model's output (Groq: json_validate_failed)."""
+
+
 class OpenAICompatLLM:
     def __init__(
         self,
@@ -22,17 +26,16 @@ class OpenAICompatLLM:
         self.client = client or httpx.Client(timeout=timeout)
         self.headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
-    def _chat(self, messages: list[dict]) -> str:
-        body = {
-            "model": self.model,
-            "messages": messages,
-            "temperature": self.temperature,
-            "response_format": {"type": "json_object"},
-        }
+    def _chat(self, messages: list[dict], json_mode: bool = True) -> str:
+        body = {"model": self.model, "messages": messages, "temperature": self.temperature}
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
         try:
             resp = self.client.post(self.url, json=body, headers=self.headers)
         except httpx.HTTPError as e:
             raise LLMError(f"could not reach {self.url}: {e}") from e
+        if resp.status_code == 400 and json_mode and "json_validate_failed" in resp.text:
+            raise _JSONModeRejected(resp.text[:500])
         if resp.status_code != 200:
             raise LLMError(f"LLM API returned {resp.status_code}: {resp.text[:500]}")
         try:
@@ -45,7 +48,11 @@ class OpenAICompatLLM:
             {"role": "system", "content": f"{system}\n\n{schema_instructions(schema)}"},
             {"role": "user", "content": user},
         ]
-        reply = self._chat(messages)
+        try:
+            reply = self._chat(messages)
+        except _JSONModeRejected:
+            # the provider refused malformed JSON; ask again without JSON mode and parse it ourselves
+            reply = self._chat(messages, json_mode=False)
         try:
             return parse_json_response(reply, schema)
         except ValueError as first:
@@ -54,7 +61,7 @@ class OpenAICompatLLM:
                 {"role": "assistant", "content": reply},
                 {"role": "user", "content": f"That reply was invalid ({first}). Reply again with corrected JSON only."},
             ]
-            reply = self._chat(messages)
+            reply = self._chat(messages, json_mode=False)
             try:
                 return parse_json_response(reply, schema)
             except ValueError as second:

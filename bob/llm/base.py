@@ -38,8 +38,33 @@ def parse_json_response(text: str, schema: type[T]) -> T:
         raise ValueError(f"JSON does not match the schema: {e}") from e
 
 
+def schema_sketch(schema: type[BaseModel]) -> str:
+    """A compact example of the JSON shape, e.g. {"items": [{"kind": "rewrite|add", "ids": ["string"]}]}.
+
+    Models follow a concrete shape far more reliably than a raw JSON Schema with $refs."""
+    full = schema.model_json_schema()
+    defs = full.get("$defs", {})
+
+    def walk(node: dict):
+        if "$ref" in node:
+            return walk(defs[node["$ref"].split("/")[-1]])
+        if "anyOf" in node:  # Optional[X] → X (null allowed)
+            options = [o for o in node["anyOf"] if o.get("type") != "null"]
+            return walk(options[0]) if options else None
+        if "enum" in node:
+            return "|".join(str(v) for v in node["enum"])
+        kind = node.get("type")
+        if kind == "object":
+            return {k: walk(v) for k, v in node.get("properties", {}).items()}
+        if kind == "array":
+            return [walk(node.get("items", {}))]
+        return {"integer": 0, "number": 0.0, "boolean": True}.get(kind, "string")
+
+    return json.dumps(walk(full))
+
+
 def schema_instructions(schema: type[BaseModel]) -> str:
     return (
-        "Reply with a single JSON object and nothing else. It must validate against this JSON Schema:\n"
-        + json.dumps(schema.model_json_schema(), separators=(",", ":"))
+        "Reply with one JSON object and nothing else (no markdown, no commentary). Use exactly this shape; "
+        "\"a|b\" means one of those values, lists may have any number of items:\n" + schema_sketch(schema)
     )
