@@ -24,18 +24,22 @@ bob/profile/    Fact/Profile models, profile.yaml store, seeding from a resume
 bob/llm/        LLM protocol, OpenAI-compatible client (Groq default), FakeLLM for tests
 bob/tailor/     analyze (JD) → match (facts) → plan (proposals) → verify; relevance scoring
 bob/build/      compile (pdflatex/xelatex/tectonic) and the page-fit loop
-bob/runs.py     Run model, stored as workspace/runs/<id>/run.json
-frontend/       React + Vite UI over the API (no UI library; hash routing)
+bob/setup.py    import a resume (shared by `bob init` and the UI), parse warnings
+bob/runs.py     Run model, stored as workspace/runs/<id>/run.json; usage stats
+frontend/       React + Vite UI over the API (no UI library; hash routing): setup, facts, settings, runs
+evals/          verifier_corpus.yaml (runs in pytest/CI) + `python -m evals.run` live eval
 tests/          pytest; fixtures in tests/fixtures (Jake's-Resume-style resume.tex, jd.txt)
 ```
 
-User data lives in `workspace/` (git-ignored): `resume.tex`, `profile.yaml`, `runs/`.
+User data lives in `workspace/` (git-ignored): `resume.tex`, `profile.yaml`, `settings.json` (UI-saved LLM
+settings incl. the API key, overrides `.env`), `runs/`.
 
 ## Commands
 
 ```bash
 pip install -e '.[dev]'                 # backend + `bob` CLI
-pytest                                  # all tests; TeX compile tests skip if pdflatex is missing
+pytest                                  # all tests + verifier corpus; TeX compile tests skip without pdflatex
+python -m evals.run                     # live eval with the configured model (needs a key)
 uvicorn bob.api:app --reload            # API on :8000
 cd frontend && npm install && npm run dev    # UI on :5173 (proxies /api to :8000)
 cd frontend && npx vite build           # check the frontend builds
@@ -46,6 +50,8 @@ LLM config is in `.env` (see `.env.example`): `BOB_LLM_BASE_URL`, `BOB_LLM_API_K
 
 ## Conventions
 
+- A fabrication that slips through goes into `evals/verifier_corpus.yaml` first (failing), then gets fixed.
+- After changing a prompt or model, run `python -m evals.run` before and after and compare.
 - Tests never call a real LLM: use `FakeLLM` / `tests.conftest.scripted_llm()` and `httpx.MockTransport`.
 - New parser support goes through `ParserConfig` (macro names), with a fixture-based test.
 - Match the existing style: small modules, docstrings that say *why*, no new dependencies without need.

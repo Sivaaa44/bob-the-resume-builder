@@ -4,6 +4,8 @@
 
 **Tailor your LaTeX resume to any job. Without making stuff up.**
 
+[![CI](https://github.com/Sivaaa44/bob-the-resume-builder/actions/workflows/ci.yml/badge.svg)](https://github.com/Sivaaa44/bob-the-resume-builder/actions/workflows/ci.yml)
+
 Paste a job description → review the changes → get a one-page PDF.
 No TeX editor. No hallucinated skills.
 
@@ -37,24 +39,9 @@ Bob does it differently:
 git clone https://github.com/Sivaaa44/bob-the-resume-builder
 cd bob-the-resume-builder
 pip install -e ".[dev]"
-cp .env.example .env              # add your API key
 ```
 
 You also need LaTeX installed: [TeX Live](https://tug.org/texlive/), [MiKTeX](https://miktex.org/) or [tectonic](https://tectonic-typesetting.github.io/).
-
-**Set up your workspace**
-
-```bash
-bob init path/to/resume.tex       # every bullet becomes a fact
-bob outline workspace/resume.tex  # check that Bob read your resume correctly
-```
-
-Then open `workspace/profile.yaml` and add the things that didn't fit on the page:
-
-```yaml
-  - text: Indexed 2M Jira tickets in Pinecone for semantic search
-    skills: [Pinecone, vector databases, RAG]
-```
 
 **Run it**
 
@@ -63,13 +50,26 @@ uvicorn bob.api:app --reload                  # backend → :8000
 cd frontend && npm install && npm run dev     # UI → http://localhost:5173
 ```
 
-Or skip the UI:
+Then, all in the browser:
+
+1. **Upload your `resume.tex`**: Bob shows how it read your resume, and every bullet becomes a fact.
+2. **Your facts**: add what didn't fit on the page, plus skill aliases you'd defend in an interview.
+3. **Settings**: pick a provider, paste your key, hit *Test connection*.
+4. **New application**: paste a JD, review the cards, build the PDF.
+
+<details>
+<summary>Prefer the terminal?</summary>
 
 ```bash
-bob tailor jd.txt        # analyze + propose changes
-bob review <run-id>      # accept / reject / edit
-bob finalize <run-id>    # build the PDF
+bob init path/to/resume.tex       # workspace + facts
+bob outline workspace/resume.tex  # check the parse
+bob tailor jd.txt                 # analyze + propose changes
+bob review <run-id>               # accept / reject / edit
+bob finalize <run-id>             # build the PDF
 ```
+
+Keys go in `.env` (see `.env.example`). Anything saved from the Settings page takes priority.
+</details>
 
 ## LLM setup
 
@@ -82,7 +82,7 @@ Bob works with any OpenAI-compatible API. Set these in `.env`:
 | OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` |
 | Ollama | `http://localhost:11434/v1` | `llama3.1` |
 
-…plus `BOB_LLM_API_KEY`. One run uses about 7k tokens.
+…plus `BOB_LLM_API_KEY`, or set all of it on the Settings page. One run uses about 7–15k tokens.
 
 ## Project layout
 
@@ -93,22 +93,29 @@ bob/
 ├── tailor/     analyze → match → plan → verify
 ├── build/      compile + fit to one page
 ├── llm/        provider client
+├── setup.py    import a resume, sanity-check the parse
 ├── pipeline.py the whole flow
 ├── cli.py      `bob` command
 └── api.py      HTTP API for the UI
 frontend/       React + Vite
+evals/          verifier corpus + live eval harness
 workspace/      your data (git-ignored)
 ```
 
-## Tests
+## Tests & evals
 
 ```bash
-pytest
+pytest                 # unit tests + the verifier corpus (no API key needed)
+python -m evals.run    # live eval with your model: coverage, leaks, tokens
 ```
+
+`evals/verifier_corpus.yaml` is a labelled set of honest and fabricated rewrites. CI fails if a single
+fabrication slips through. See [`evals/README.md`](evals/README.md).
 
 ## Roadmap
 
-- [ ] Resume upload + facts editor in the browser
+- [x] Resume upload + facts editor in the browser
+- [x] Eval set + CI
 - [ ] `bob serve`: one command, no Node needed
 - [ ] Pull job descriptions from LinkedIn and Greenhouse in one click
 - [ ] Cover letters from the same verified facts
