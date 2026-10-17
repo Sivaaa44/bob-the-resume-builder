@@ -22,6 +22,12 @@ def contains_term(text: str, term: str) -> bool:
     return bool(term.strip()) and bool(_pattern(term).search(text))
 
 
+def matched_text(text: str, term: str) -> str:
+    """The text as it actually appears in `text` for `term` (e.g. "Terraform" for "terraform")."""
+    m = _pattern(term).search(text)
+    return m.group(0) if m else term
+
+
 def find_terms(text: str, vocabulary: list[str] | set[str]) -> list[str]:
     """Terms from `vocabulary` that occur in `text`. Longer terms win over terms they contain
     ("Adobe Sign API" suppresses a bare "API" found only inside it)."""

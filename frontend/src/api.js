@@ -28,6 +28,14 @@ export const api = {
     request(`/runs/${id}`, { method: 'PATCH', body: { include_skill_additions: include } }),
   finalize: (id) => request(`/runs/${id}/finalize`, { method: 'POST' }),
   abort: (id) => request(`/runs/${id}/abort`, { method: 'POST' }),
+  // setup + facts + settings
+  setupPreview: (tex) => request('/setup/preview', { method: 'POST', body: { tex } }),
+  setupImport: (tex) => request('/setup/import', { method: 'POST', body: { tex } }),
+  saveProfile: (profile) => request('/profile', { method: 'PUT', body: profile }),
+  settings: () => request('/settings'),
+  saveSettings: (values) => request('/settings', { method: 'PUT', body: values }),
+  testSettings: () => request('/settings/test', { method: 'POST' }),
+  stats: () => request('/stats'),
   pdfUrl: (id, version) => `/api/runs/${id}/pdf?v=${encodeURIComponent(version ?? '')}`,
   texUrl: (id) => `/api/runs/${id}/tex`,
 }
