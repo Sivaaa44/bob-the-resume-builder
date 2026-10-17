@@ -94,3 +94,23 @@ class RunStore:
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def usage_stats(runs: list[Run]) -> dict:
+    """How useful Bob is being: of the proposals you decided on, how many did you keep?"""
+    statuses = [p.status for r in runs for p in r.proposals]
+    kept = statuses.count("accepted") + statuses.count("edited")
+    decided = kept + statuses.count("rejected")
+    finalized = [r for r in runs if r.status == "finalized"]
+    tokens = [r.total_usage.total for r in runs if r.token_usage]
+    return {
+        "runs": len(runs),
+        "finalized": len(finalized),
+        "proposals": len(statuses),
+        "kept": kept,
+        "edited": statuses.count("edited"),
+        "rejected": statuses.count("rejected"),
+        "blocked": statuses.count("blocked"),
+        "acceptance_rate": round(kept / decided, 3) if decided else None,
+        "avg_tokens_per_run": round(sum(tokens) / len(tokens)) if tokens else None,
+    }

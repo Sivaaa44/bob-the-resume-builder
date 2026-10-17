@@ -69,7 +69,7 @@ def seed_profile(doc: ResumeDoc) -> Profile:
     return Profile(facts=facts, skills=skills)
 
 
-def _assign_missing_ids(raw_facts: list[dict]) -> int:
+def assign_missing_ids(raw_facts: list[dict]) -> int:
     used = {str(f["id"]) for f in raw_facts if f.get("id")}
     n = max([int(m.group(1)) for i in used if (m := re.fullmatch(r"f(\d+)", i))], default=0)
     assigned = 0
@@ -99,7 +99,7 @@ def load_profile(path: Path, doc: ResumeDoc | None = None, persist_ids: bool = F
             raw.append({**_as_dict(item, path), "entry": entry_id})
     for item in data.get("general") or []:
         raw.append({**_as_dict(item, path), "entry": None})
-    assigned = _assign_missing_ids(raw)
+    assigned = assign_missing_ids(raw)
 
     try:
         profile = Profile(facts=[Fact(**f) for f in raw], skills=data.get("skills") or {})
