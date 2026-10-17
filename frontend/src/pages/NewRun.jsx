@@ -9,7 +9,7 @@ const STEPS = [
   'Checking every claim against your facts…',
 ]
 
-export default function NewRun() {
+export default function NewRun({ hasKey = true }) {
   const [jd, setJd] = useState('')
   const [strict, setStrict] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -48,6 +48,11 @@ export default function NewRun() {
         <p className="muted">
           Paste the job description. Bob suggests changes backed by your facts, and you approve each one.
         </p>
+        {!hasKey && (
+          <div className="notice small">
+            Bob needs an AI key first. <a href="#/settings">Add one in Settings</a> (Gemini’s free tier works).
+          </div>
+        )}
         <textarea
           value={jd}
           onChange={(e) => setJd(e.target.value)}
@@ -61,7 +66,7 @@ export default function NewRun() {
             <input type="checkbox" checked={strict} onChange={(e) => setStrict(e.target.checked)} disabled={busy} />
             Strict mode: double-check every claim with the model
           </label>
-          <button className="btn btn-primary" disabled={busy || jd.trim().length < 40}>
+          <button className="btn btn-primary" disabled={busy || !hasKey || jd.trim().length < 40}>
             {busy ? 'Working…' : 'Tailor resume'}
           </button>
         </div>
