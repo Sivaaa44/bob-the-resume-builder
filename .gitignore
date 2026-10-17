@@ -12,3 +12,4 @@ frontend/dist
 workspace/
 *.egg-info/
 .pytest_cache/
+evals/results/

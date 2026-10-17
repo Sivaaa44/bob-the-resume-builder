@@ -1,0 +1,173 @@
+# Verifier corpus: hand-labelled proposals checked against tests/fixtures/resume.tex and the test
+# profile (seeded facts f1–f10, plus f11 = Pinecone at Acme, f12 = AWS cert, general).
+# JD requirements: r1 Python (covered by f1), r2 vector databases (covered by f11, model-judged),
+# r3 Kubernetes (gap), r4 Snowflake (covered by f2).
+#
+# expect: pass  → no error checks (warnings are fine)
+# expect: block → at least one error, and `check` names the one that must fire
+#
+# Run by tests/test_evals.py on every commit. When a fabrication slips through in real use,
+# add it here first, watch it fail, then fix the verifier.
+
+cases:
+  # ---------- honest rewrites: must pass ----------
+  - name: reorder clauses, keep the number
+    bullet: experience.data-engineering-intern.b1
+    text: Cut report generation time by 40% with a multi-agent **Python** pipeline
+    facts: [f1]
+    expect: pass
+
+  - name: units glued to numbers are not tools
+    bullet: experience.data-engineering-intern.b2
+    text: Transformed 2M+ rows of sales data with SQL in Snowflake
+    facts: [f2]
+    expect: pass
+
+  - name: JD wording backed by a covering fact
+    entry: experience.data-engineering-intern
+    text: Indexed 50k support tickets in a **vector database** (Pinecone) for semantic search
+    facts: [f11]
+    expect: pass
+
+  - name: general fact used under another entry
+    entry: leadership.items
+    text: Earned the AWS Certified Cloud Practitioner credential (2024)
+    facts: [f12]
+    expect: pass
+
+  - name: active-voice rewrite with the same metric
+    bullet: experience.automation-intern.b2
+    text: Saved the finance team 15 hours/week by automating manual data entry
+    facts: [f5]
+    expect: pass
+
+  - name: project stack fact supports tool names
+    bullet: projects.cricketbrain.b1
+    text: Built a natural-language-to-SQL agent with FastAPI and Groq over 40k ball-by-ball records
+    facts: [f6, f7]
+    expect: pass
+
+  - name: plain rephrase, no new claims
+    bullet: experience.data-engineering-intern.b3
+    text: Gave LLM agents access to internal tools through an MCP server
+    facts: [f3]
+    expect: pass
+
+  - name: special characters survive
+    bullet: leadership.items.b1
+    text: Organized a 200-person hackathon & raised $5k in sponsorship
+    facts: [f9]
+    expect: pass
+
+  # ---------- fabrications: must be blocked ----------
+  - name: inflated metric
+    bullet: experience.data-engineering-intern.b1
+    text: Cut report generation time by 60% with a multi-agent Python pipeline
+    facts: [f1]
+    expect: block
+    check: numbers
+
+  - name: invented business impact
+    bullet: experience.data-engineering-intern.b2
+    text: Wrote SQL transformations in Snowflake over 2M+ rows, saving $20k per year
+    facts: [f2]
+    expect: block
+    check: numbers
+
+  - name: invented year
+    bullet: experience.data-engineering-intern.b1
+    text: In 2023, built a multi-agent Python pipeline that cut report time by 40%
+    facts: [f1]
+    expect: block
+    check: numbers
+
+  - name: JD tool with no evidence
+    bullet: experience.data-engineering-intern.b1
+    text: Built a multi-agent Python pipeline on Kubernetes that cut report time by 40%
+    facts: [f1]
+    expect: block
+    check: terms
+
+  - name: capitalised tool nobody listed
+    bullet: experience.data-engineering-intern.b3
+    text: Exposed internal tools to LLM agents through an MCP server provisioned with Terraform
+    facts: [f3]
+    expect: block
+    check: terms
+
+  - name: lowercase tool nobody listed
+    bullet: experience.data-engineering-intern.b3
+    text: Exposed internal tools to LLM agents through an MCP server deployed with terraform
+    facts: [f3]
+    expect: block
+    check: terms
+
+  - name: lowercase tool from the skills section without evidence
+    bullet: experience.data-engineering-intern.b1
+    text: Built a multi-agent Python pipeline, containerized with docker, cutting report time 40%
+    facts: [f1]
+    expect: block
+    check: terms
+
+  - name: cloud claim without citing the cert
+    bullet: experience.data-engineering-intern.b3
+    text: Exposed internal tools to LLM agents through an MCP server running on AWS
+    facts: [f3]
+    expect: block
+    check: terms
+
+  - name: JD term cited with a fact that doesn't cover it
+    entry: experience.data-engineering-intern
+    text: Built a vector database search layer in Python
+    facts: [f1]
+    expect: block
+    check: terms
+
+  - name: another job's work moved into this job
+    bullet: experience.automation-intern.b1
+    text: Automated invoice workflows with ServiceNow and loaded the results into Snowflake
+    facts: [f4, f2]
+    expect: block
+    check: facts_scope
+
+  - name: another project's stack claimed in a job
+    entry: experience.automation-intern
+    text: Built a FastAPI service backed by SQLite
+    facts: [f6]
+    expect: block
+    check: facts_scope
+
+  - name: made-up fact id
+    entry: experience.data-engineering-intern
+    text: Led a team of engineers
+    facts: [f99]
+    expect: block
+    check: facts_exist
+
+  - name: new bullet with no facts at all
+    entry: experience.data-engineering-intern
+    text: Mentored interns on data modelling
+    facts: []
+    expect: block
+    check: facts_exist
+
+  - name: framework name smuggled in lowercase
+    bullet: projects.cricketbrain.b2
+    text: Served a React UI with streaming answers via FastAPI and langchain
+    facts: [f8]
+    expect: block
+    check: terms
+
+  - name: ML library not in any fact
+    bullet: projects.cricketbrain.b1
+    text: Trained a PyTorch model for natural-language-to-SQL over 40k ball-by-ball records
+    facts: [f7]
+    expect: block
+    check: terms
+
+  - name: invented team size
+    bullet: leadership.items.b2
+    text: Mentored 12 first-year students in data structures
+    facts: [f10]
+    expect: block
+    check: numbers

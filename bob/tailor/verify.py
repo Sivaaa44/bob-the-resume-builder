@@ -12,8 +12,9 @@ from pydantic import BaseModel, Field
 from bob.llm.base import LLM
 from bob.profile.model import Fact, Profile
 from bob.tailor.models import Check, Coverage, JobAnalysis, Proposal
-from bob.terms import contains_term, find_terms, name_like_tokens, norm, same_term
+from bob.terms import contains_term, find_terms, matched_text, name_like_tokens, norm, same_term
 from bob.tex.model import ResumeDoc
+from bob.tailor.tech_terms import TECH_TERMS
 from bob.tex.text import strip_markers
 
 _NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)*")
@@ -27,7 +28,12 @@ def vocabulary(profile: Profile, analysis: JobAnalysis, doc: ResumeDoc) -> list[
     """Every term the checker watches for: the user's skills and the JD's keywords."""
     terms = profile.all_skills() + [k for r in analysis.requirements for k in r.keywords]
     terms += [s for line in doc.skill_lines() for s in line.items]
-    return list({norm(t): t for t in terms if t.strip()}.values())
+    terms += TECH_TERMS  # catches lowercase tools nobody listed ("deployed with terraform")
+    seen: dict[str, str] = {}
+    for t in terms:  # first spelling wins: the user's/JD's casing beats the built-in list
+        if t.strip():
+            seen.setdefault(norm(t), t)
+    return list(seen.values())
 
 
 class _EntailOut(BaseModel):
@@ -114,12 +120,12 @@ def _term_checks(new: str, evidence: str, p: Proposal, cited: list[Fact], analys
         )
         if bridge is None:
             checks.append(Check(name="terms", level="error",
-                                message=f"'{term}' is not supported by the cited facts"))
+                                message=f"'{matched_text(new, term)}' is not supported by the cited facts"))
         else:
             r, c = bridge
             via = ", ".join(sorted(cited_ids & set(c.fact_ids)))
             checks.append(Check(name="terms", level="warning",
-                                message=f"uses the JD's term '{term}' because {via} was judged to cover "
+                                message=f"uses the JD's term '{matched_text(new, term)}' because {via} was judged to cover "
                                         f"'{r.text}' — make sure you'd defend that in an interview"))
     return checks
 

@@ -1,0 +1,15 @@
+# Almost nothing matches: Bob should report gaps, not invent mobile experience.
+resume: tests/fixtures/resume.tex
+jd: |
+  Senior iOS Engineer — Fintech startup
+
+  Must have
+  - 4+ years building iOS apps in Swift and SwiftUI
+  - Experience shipping apps to the App Store
+  - Core Data, Combine and XCTest
+  - Kotlin or Android experience is a plus
+
+  You'll work closely with designers in Figma.
+expect:
+  must_gap: [Swift, SwiftUI, Core Data, XCTest, Kotlin]
+  forbidden: [Swift, SwiftUI, iOS, Core Data, Combine, XCTest, Kotlin, Android, Figma, App Store]

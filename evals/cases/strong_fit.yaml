@@ -1,0 +1,22 @@
+# Most requirements are backed by facts; one (Kubernetes) is a real gap.
+resume: tests/fixtures/resume.tex
+extra_facts:
+  - entry: experience.data-engineering-intern
+    text: Indexed 50k support tickets in Pinecone for semantic search
+    skills: [Pinecone, vector databases]
+jd: |
+  Initech is hiring a Machine Learning Engineer to build retrieval and agent systems.
+
+  Requirements
+  - Strong Python
+  - Experience with vector databases and semantic search
+  - Building LLM agents and tool integrations
+  - Kubernetes in production
+
+  Nice to have
+  - Snowflake or another cloud data warehouse
+  - FastAPI
+expect:
+  must_cover: [Python, vector databases, Snowflake]
+  must_gap: [Kubernetes]
+  forbidden: [Kubernetes, k8s, Terraform, AWS, PyTorch]
